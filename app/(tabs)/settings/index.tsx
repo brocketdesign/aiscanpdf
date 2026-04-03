@@ -5,7 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
+import { useSubscriptionStore } from '../../../src/stores/subscriptionStore';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 
 function SettingRow({
   icon,
@@ -54,6 +56,13 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuthStore();
   const settings = useSettingsStore();
+  const {
+    subscription,
+    usage,
+    isPremium,
+    manageSubscription,
+    getRemainingCredits,
+  } = useSubscriptionStore();
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -93,6 +102,92 @@ export default function SettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color={theme.colors.onSurfaceVariant} />
         </Pressable>
+
+        {/* Subscription Section */}
+        <View style={styles.section}>
+          <Text variant="labelLarge" style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant }]}>
+            SUBSCRIPTION
+          </Text>
+          {isPremium() ? (
+            <View style={[styles.settingGroup, { backgroundColor: theme.colors.surface }]}>
+              <Pressable
+                onPress={() => router.push('/premium')}
+                style={styles.premiumStatusCard}
+              >
+                <LinearGradient
+                  colors={['#7C3AED', '#EC4899']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.premiumBadgeIcon}
+                >
+                  <Ionicons name="diamond" size={18} color="#FFF" />
+                </LinearGradient>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text variant="bodyLarge" style={{ fontWeight: '600' }}>
+                    Premium Active
+                  </Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    {subscription.cancel_at_period_end
+                      ? `Cancels ${subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'soon'}`
+                      : `Renews ${subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'automatically'}`}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={theme.colors.onSurfaceVariant} />
+              </Pressable>
+              <Divider style={{ marginLeft: 60 }} />
+              <SettingRow
+                icon="card-outline"
+                title="Manage Subscription"
+                subtitle="Update payment, change plan, or cancel"
+                color="#7C3AED"
+                onPress={async () => {
+                  try {
+                    await manageSubscription();
+                  } catch {
+                    Alert.alert('Error', 'Could not open billing portal');
+                  }
+                }}
+              />
+            </View>
+          ) : (
+            <View style={[styles.settingGroup, { backgroundColor: theme.colors.surface }]}>
+              <Pressable
+                onPress={() => router.push('/premium')}
+                style={styles.upgradeCard}
+              >
+                <LinearGradient
+                  colors={['#7C3AED', '#EC4899', '#F59E0B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.upgradeBannerBg}
+                >
+                  <Ionicons name="diamond" size={24} color="#FFF" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text variant="titleSmall" style={{ color: '#FFF', fontWeight: '700' }}>
+                      Upgrade to Premium
+                    </Text>
+                    <Text variant="bodySmall" style={{ color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                      Unlock unlimited scans, OCR & AI features
+                    </Text>
+                  </View>
+                  <Ionicons name="arrow-forward-circle" size={24} color="#FFF" />
+                </LinearGradient>
+              </Pressable>
+              <View style={styles.creditsOverview}>
+                <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 10 }}>
+                  Monthly Credits Remaining
+                </Text>
+                <View style={styles.creditsRow}>
+                  <CreditChip label="Scans" remaining={getRemainingCredits('scans')} total={usage.scans_limit} theme={theme} />
+                  <CreditChip label="OCR" remaining={getRemainingCredits('ocr')} total={usage.ocr_limit} theme={theme} />
+                  <CreditChip label="AI" remaining={getRemainingCredits('summaries')} total={usage.summaries_limit} theme={theme} />
+                  <CreditChip label="TTS" remaining={getRemainingCredits('tts')} total={usage.tts_limit} theme={theme} />
+                  <CreditChip label="Q&A" remaining={getRemainingCredits('qa')} total={usage.qa_limit} theme={theme} />
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
 
         {/* Scan Settings */}
         <View style={styles.section}>
@@ -207,6 +302,51 @@ export default function SettingsScreen() {
   );
 }
 
+function CreditChip({
+  label,
+  remaining,
+  total,
+  theme,
+}: {
+  label: string;
+  remaining: number;
+  total: number;
+  theme: any;
+}) {
+  const isExhausted = remaining === 0;
+  return (
+    <View
+      style={[
+        styles.creditChip,
+        {
+          backgroundColor: isExhausted
+            ? theme.colors.errorContainer
+            : theme.colors.surfaceVariant,
+        },
+      ]}
+    >
+      <Text
+        variant="labelLarge"
+        style={{
+          fontWeight: '700',
+          color: isExhausted ? theme.colors.error : theme.colors.onSurface,
+        }}
+      >
+        {remaining}
+      </Text>
+      <Text
+        variant="labelSmall"
+        style={{
+          color: isExhausted ? theme.colors.error : theme.colors.onSurfaceVariant,
+          fontSize: 10,
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -260,5 +400,41 @@ const styles = StyleSheet.create({
   settingContent: {
     flex: 1,
     marginLeft: 12,
+  },
+  premiumStatusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  premiumBadgeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upgradeCard: {
+    overflow: 'hidden',
+    borderRadius: 0,
+  },
+  upgradeBannerBg: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  creditsOverview: {
+    padding: 16,
+  },
+  creditsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  creditChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 2,
   },
 });

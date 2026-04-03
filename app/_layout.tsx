@@ -7,16 +7,19 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '../src/stores/authStore';
 import { useSettingsStore } from '../src/stores/settingsStore';
+import { useSubscriptionStore } from '../src/stores/subscriptionStore';
 import { lightTheme, darkTheme } from '../src/theme';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { initialize } = useAuthStore();
   const { theme: themePreference, loadSettings, isLoaded } = useSettingsStore();
+  const { loadSubscription } = useSubscriptionStore();
 
   useEffect(() => {
     initialize();
     loadSettings();
+    loadSubscription();
   }, []);
 
   const isDark =
@@ -44,6 +47,10 @@ export default function RootLayout() {
               options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
             />
             <Stack.Screen name="document/[id]" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen
+              name="premium"
+              options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+            />
           </Stack>
         </PaperProvider>
       </SafeAreaProvider>

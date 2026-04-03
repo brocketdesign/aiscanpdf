@@ -6,7 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useDocumentStore } from '../../src/stores/documentStore';
+import { useSubscriptionStore } from '../../src/stores/subscriptionStore';
 import { AIActionCard } from '../../src/components/AIActionCard';
+import { UsageBadge } from '../../src/components/UsageBadge';
 import { GradientButton } from '../../src/components/GradientButton';
 import * as openaiService from '../../src/services/openai';
 import * as imageProcessing from '../../src/services/imageProcessing';
@@ -16,6 +18,7 @@ export default function DocumentDetailScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { documents, updateDocument, deleteDocument, toggleFavorite } = useDocumentStore();
+  const { useCredit, canUseFeature } = useSubscriptionStore();
 
   const doc = documents.find((d) => d.id === id);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -32,6 +35,8 @@ export default function DocumentDetailScreen() {
 
   const handleOCR = useCallback(async () => {
     if (!doc || doc.pages.length === 0) return;
+    const allowed = await useCredit('ocr');
+    if (!allowed) return;
     setLoadingOCR(true);
     try {
       const base64 = await imageProcessing.imageToBase64(doc.pages[0].uri);
@@ -51,6 +56,8 @@ export default function DocumentDetailScreen() {
       setSnackbar('Extract text first (OCR)');
       return;
     }
+    const allowed = await useCredit('summaries');
+    if (!allowed) return;
     setLoadingSummary(true);
     try {
       const result = await openaiService.summarizeDocument(ocrText);
@@ -69,6 +76,8 @@ export default function DocumentDetailScreen() {
       setSnackbar('Extract text first and enter a question');
       return;
     }
+    const allowed = await useCredit('qa');
+    if (!allowed) return;
     setLoadingQA(true);
     try {
       const result = await openaiService.askDocumentQuestion(ocrText, question.trim());
@@ -86,6 +95,8 @@ export default function DocumentDetailScreen() {
       setSnackbar('Extract text or generate summary first');
       return;
     }
+    const allowed = await useCredit('tts');
+    if (!allowed) return;
     setLoadingTTS(true);
     try {
       await openaiService.textToSpeech(textToRead);
@@ -210,34 +221,52 @@ export default function DocumentDetailScreen() {
 
         {/* AI Actions */}
         <View style={styles.section}>
-          <Text variant="titleMedium" style={{ fontWeight: '600', paddingHorizontal: 16 }}>
-            AI Tools
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
+            <Text variant="titleMedium" style={{ fontWeight: '600' }}>
+              AI Tools
+            </Text>
+            <Pressable onPress={() => router.push('/premium')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="diamond-outline" size={14} color="#7C3AED" />
+              <Text variant="labelSmall" style={{ color: '#7C3AED', fontWeight: '600' }}>Credits</Text>
+            </Pressable>
+          </View>
           <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
-            <AIActionCard
-              icon="text-outline"
-              title="Extract Text (OCR)"
-              subtitle={ocrText ? `${ocrText.length} characters extracted` : 'Use AI vision to read text'}
-              onPress={handleOCR}
-              loading={loadingOCR}
-              color="#2563EB"
-            />
-            <AIActionCard
-              icon="flash-outline"
-              title="AI Summary"
-              subtitle={summary ? 'Summary generated' : 'Get a smart overview'}
-              onPress={handleSummary}
-              loading={loadingSummary}
-              color="#7C3AED"
-            />
-            <AIActionCard
-              icon="volume-high-outline"
-              title="Read Aloud (TTS)"
-              subtitle="Listen to your document"
-              onPress={handleTTS}
-              loading={loadingTTS}
-              color="#0891B2"
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <AIActionCard
+                  icon="text-outline"
+                  title="Extract Text (OCR)"
+                  subtitle={ocrText ? `${ocrText.length} characters extracted` : 'Use AI vision to read text'}
+                  onPress={handleOCR}
+                  loading={loadingOCR}
+                  color="#2563EB"
+                />
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <AIActionCard
+                  icon="flash-outline"
+                  title="AI Summary"
+                  subtitle={summary ? 'Summary generated' : 'Get a smart overview'}
+                  onPress={handleSummary}
+                  loading={loadingSummary}
+                  color="#7C3AED"
+                />
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <AIActionCard
+                  icon="volume-high-outline"
+                  title="Read Aloud (TTS)"
+                  subtitle="Listen to your document"
+                  onPress={handleTTS}
+                  loading={loadingTTS}
+                  color="#0891B2"
+                />
+              </View>
+            </View>
           </View>
         </View>
 

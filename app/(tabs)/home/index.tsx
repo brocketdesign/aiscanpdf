@@ -18,11 +18,13 @@ import { SearchHeader } from '../../../src/components/SearchHeader';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { useDocumentStore } from '../../../src/stores/documentStore';
 import { useAuthStore } from '../../../src/stores/authStore';
+import { useSubscriptionStore } from '../../../src/stores/subscriptionStore';
 
 export default function HomeScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
+  const { isPremium, usage, showPremiumScreen, getRemainingCredits } = useSubscriptionStore();
   const {
     documents,
     folders,
@@ -47,6 +49,13 @@ export default function HomeScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Auto-show premium screen when usage limit is hit
+  useEffect(() => {
+    if (showPremiumScreen) {
+      router.push('/premium');
+    }
+  }, [showPremiumScreen]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -148,6 +157,38 @@ export default function HomeScreen() {
             </LinearGradient>
           </Pressable>
         </View>
+
+        {/* Premium Upsell Banner */}
+        {!isPremium() && (
+          <Pressable
+            onPress={() => router.push('/premium')}
+            style={({ pressed }) => [pressed && { opacity: 0.9 }]}
+          >
+            <View style={styles.premiumBanner}>
+              <LinearGradient
+                colors={['#7C3AED', '#EC4899']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.premiumBannerGradient}
+              >
+                <View style={styles.premiumBannerContent}>
+                  <View style={styles.premiumBannerIcon}>
+                    <Ionicons name="diamond" size={22} color="#FFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text variant="titleSmall" style={{ color: '#FFF', fontWeight: '700' }}>
+                      Upgrade to Premium
+                    </Text>
+                    <Text variant="bodySmall" style={{ color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>
+                      {getRemainingCredits('scans')} scans · {getRemainingCredits('ocr')} OCR · {getRemainingCredits('summaries')} summaries left
+                    </Text>
+                  </View>
+                  <Ionicons name="arrow-forward-circle" size={28} color="rgba(255,255,255,0.9)" />
+                </View>
+              </LinearGradient>
+            </View>
+          </Pressable>
+        )}
 
         {/* Folders */}
         {folders.length > 0 && (
@@ -291,6 +332,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+  },
+  premiumBanner: {
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  premiumBannerGradient: {
+    borderRadius: 14,
+    padding: 14,
+  },
+  premiumBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  premiumBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   section: {
     marginTop: 24,

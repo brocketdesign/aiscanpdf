@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useScanStore } from '../../../src/stores/scanStore';
+import { useSubscriptionStore } from '../../../src/stores/subscriptionStore';
 import { GradientButton } from '../../../src/components/GradientButton';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -26,11 +27,14 @@ export default function ScanScreen() {
     toggleFlash,
     clearSession,
   } = useScanStore();
+  const { useCredit } = useSubscriptionStore();
 
   const [showModeSheet, setShowModeSheet] = useState(false);
 
   const takePicture = useCallback(async () => {
     if (!cameraRef.current || isProcessing) return;
+    const allowed = await useCredit('scans');
+    if (!allowed) return;
     try {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.85,
@@ -54,6 +58,8 @@ export default function ScanScreen() {
     });
     if (!result.canceled) {
       for (const asset of result.assets) {
+        const allowed = await useCredit('scans');
+        if (!allowed) return;
         await addPage(asset.uri);
       }
       if (mode === 'single') {
