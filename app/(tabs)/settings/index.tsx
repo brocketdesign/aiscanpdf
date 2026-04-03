@@ -111,7 +111,7 @@ export default function SettingsScreen() {
           {isPremium() ? (
             <View style={[styles.settingGroup, { backgroundColor: theme.colors.surface }]}>
               <Pressable
-                onPress={() => router.push('/premium')}
+                onPress={() => router.push('/premium' as any)}
                 style={styles.premiumStatusCard}
               >
                 <LinearGradient
@@ -152,7 +152,7 @@ export default function SettingsScreen() {
           ) : (
             <View style={[styles.settingGroup, { backgroundColor: theme.colors.surface }]}>
               <Pressable
-                onPress={() => router.push('/premium')}
+                onPress={() => router.push('/premium' as any)}
                 style={styles.upgradeCard}
               >
                 <LinearGradient

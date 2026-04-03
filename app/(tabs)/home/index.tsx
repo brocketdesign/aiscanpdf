@@ -53,7 +53,7 @@ export default function HomeScreen() {
   // Auto-show premium screen when usage limit is hit
   useEffect(() => {
     if (showPremiumScreen) {
-      router.push('/premium');
+      router.push('/premium' as any);
     }
   }, [showPremiumScreen]);
 
@@ -161,7 +161,7 @@ export default function HomeScreen() {
         {/* Premium Upsell Banner */}
         {!isPremium() && (
           <Pressable
-            onPress={() => router.push('/premium')}
+            onPress={() => router.push('/premium' as any)}
             style={({ pressed }) => [pressed && { opacity: 0.9 }]}
           >
             <View style={styles.premiumBanner}>

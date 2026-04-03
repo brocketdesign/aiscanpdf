@@ -44,7 +44,7 @@ export function UsageBadge({ feature, compact = false }: UsageBadgeProps) {
     <Pressable
       onPress={() => {
         if (isExhausted) {
-          router.push('/premium');
+          router.push('/premium' as any);
         }
       }}
       style={[styles.badge, { backgroundColor: bgColor }]}

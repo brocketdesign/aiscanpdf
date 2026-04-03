@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, Pressable, Alert, Share, Dimensions } from 'react-native';
 import { Text, useTheme, IconButton, Menu, Divider, TextInput, Snackbar } from 'react-native-paper';
 import { Image } from 'expo-image';
@@ -18,7 +18,14 @@ export default function DocumentDetailScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { documents, updateDocument, deleteDocument, toggleFavorite } = useDocumentStore();
-  const { useCredit, canUseFeature } = useSubscriptionStore();
+  const { useCredit, canUseFeature, showPremiumScreen } = useSubscriptionStore();
+
+  // Auto-navigate to premium screen when credit is exhausted
+  useEffect(() => {
+    if (showPremiumScreen) {
+      router.push('/premium' as any);
+    }
+  }, [showPremiumScreen]);
 
   const doc = documents.find((d) => d.id === id);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -225,7 +232,7 @@ export default function DocumentDetailScreen() {
             <Text variant="titleMedium" style={{ fontWeight: '600' }}>
               AI Tools
             </Text>
-            <Pressable onPress={() => router.push('/premium')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Pressable onPress={() => router.push('/premium' as any)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Ionicons name="diamond-outline" size={14} color="#7C3AED" />
               <Text variant="labelSmall" style={{ color: '#7C3AED', fontWeight: '600' }}>Credits</Text>
             </Pressable>

@@ -48,35 +48,43 @@ ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
 
 -- Documents: users can only access their own
+DROP POLICY IF EXISTS "Users can view own documents" ON documents;
 CREATE POLICY "Users can view own documents"
   ON documents FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own documents" ON documents;
 CREATE POLICY "Users can insert own documents"
   ON documents FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own documents" ON documents;
 CREATE POLICY "Users can update own documents"
   ON documents FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own documents" ON documents;
 CREATE POLICY "Users can delete own documents"
   ON documents FOR DELETE
   USING (auth.uid() = user_id);
 
 -- Folders: users can only access their own
+DROP POLICY IF EXISTS "Users can view own folders" ON folders;
 CREATE POLICY "Users can view own folders"
   ON folders FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own folders" ON folders;
 CREATE POLICY "Users can insert own folders"
   ON folders FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own folders" ON folders;
 CREATE POLICY "Users can update own folders"
   ON folders FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own folders" ON folders;
 CREATE POLICY "Users can delete own folders"
   ON folders FOR DELETE
   USING (auth.uid() = user_id);
@@ -95,6 +103,7 @@ VALUES ('thumbnails', 'thumbnails', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies
+DROP POLICY IF EXISTS "Users can upload scans" ON storage.objects;
 CREATE POLICY "Users can upload scans"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -102,6 +111,7 @@ CREATE POLICY "Users can upload scans"
     auth.uid()::text = (storage.foldername(name))[1]
   );
 
+DROP POLICY IF EXISTS "Users can view own uploads" ON storage.objects;
 CREATE POLICY "Users can view own uploads"
   ON storage.objects FOR SELECT
   USING (
@@ -109,6 +119,7 @@ CREATE POLICY "Users can view own uploads"
     auth.uid()::text = (storage.foldername(name))[1]
   );
 
+DROP POLICY IF EXISTS "Users can delete own uploads" ON storage.objects;
 CREATE POLICY "Users can delete own uploads"
   ON storage.objects FOR DELETE
   USING (
@@ -116,6 +127,83 @@ CREATE POLICY "Users can delete own uploads"
     auth.uid()::text = (storage.foldername(name))[1]
   );
 
+DROP POLICY IF EXISTS "Public can view uploaded files" ON storage.objects;
 CREATE POLICY "Public can view uploaded files"
   ON storage.objects FOR SELECT
   USING (bucket_id IN ('scans', 'pdfs', 'thumbnails'));
+
+-- ============================================
+-- Subscription & Usage Tracking Tables
+-- ============================================
+
+-- ─── Subscriptions Table ────────────────────
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'premium')),
+  status TEXT NOT NULL DEFAULT 'none' CHECK (status IN ('active', 'canceled', 'expired', 'none')),
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  billing_period TEXT CHECK (billing_period IN ('monthly', 'yearly')),
+  current_period_end TIMESTAMPTZ,
+  cancel_at_period_end BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id)
+);
+
+-- ─── Usage Tracking Table ───────────────────
+CREATE TABLE IF NOT EXISTS usage_credits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  scans_used INTEGER NOT NULL DEFAULT 0,
+  ocr_used INTEGER NOT NULL DEFAULT 0,
+  summaries_used INTEGER NOT NULL DEFAULT 0,
+  tts_used INTEGER NOT NULL DEFAULT 0,
+  qa_used INTEGER NOT NULL DEFAULT 0,
+  period_start TIMESTAMPTZ NOT NULL DEFAULT date_trunc('month', now()),
+  period_end TIMESTAMPTZ NOT NULL DEFAULT (date_trunc('month', now()) + interval '1 month'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id, period_start)
+);
+
+-- ─── Indexes ────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_customer ON subscriptions(stripe_customer_id);
+CREATE INDEX IF NOT EXISTS idx_usage_credits_user_id ON usage_credits(user_id);
+CREATE INDEX IF NOT EXISTS idx_usage_credits_period ON usage_credits(user_id, period_start);
+
+-- ─── Row Level Security ─────────────────────
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usage_credits ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own subscription" ON subscriptions;
+CREATE POLICY "Users can view own subscription"
+  ON subscriptions FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own subscription" ON subscriptions;
+CREATE POLICY "Users can insert own subscription"
+  ON subscriptions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own subscription" ON subscriptions;
+CREATE POLICY "Users can update own subscription"
+  ON subscriptions FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can view own usage" ON usage_credits;
+CREATE POLICY "Users can view own usage"
+  ON usage_credits FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own usage" ON usage_credits;
+CREATE POLICY "Users can insert own usage"
+  ON usage_credits FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own usage" ON usage_credits;
+CREATE POLICY "Users can update own usage"
+  ON usage_credits FOR UPDATE
+  USING (auth.uid() = user_id);
