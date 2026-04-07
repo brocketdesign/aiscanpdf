@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, ScrollView, Pressable, Alert } from 'react-native';
+import { StyleSheet, View, ScrollView, Pressable, Alert, Platform, Linking } from 'react-native';
 import { Text, useTheme, Switch, Divider, IconButton } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -60,7 +60,6 @@ export default function SettingsScreen() {
     subscription,
     usage,
     isPremium,
-    manageSubscription,
     getRemainingCredits,
   } = useSubscriptionStore();
 
@@ -81,7 +80,7 @@ export default function SettingsScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
-        <Pressable style={styles.profileSection}>
+        <Pressable style={styles.profileSection} onPress={!user ? () => router.push('/login') : undefined}>
           <LinearGradient
             colors={['#2563EB', '#7C3AED']}
             start={{ x: 0, y: 0 }}
@@ -89,15 +88,15 @@ export default function SettingsScreen() {
             style={styles.avatar}
           >
             <Text style={{ color: '#FFF', fontSize: 24, fontWeight: '700' }}>
-              {(user?.full_name ?? user?.email ?? 'U').charAt(0).toUpperCase()}
+              {(user?.full_name ?? user?.email ?? 'G').charAt(0).toUpperCase()}
             </Text>
           </LinearGradient>
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text variant="titleMedium" style={{ fontWeight: '600' }}>
-              {user?.full_name ?? 'User'}
+              {user?.full_name ?? (user ? 'User' : 'Guest')}
             </Text>
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              {user?.email}
+              {user?.email ?? 'Tap to sign in'}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={theme.colors.onSurfaceVariant} />
@@ -138,13 +137,13 @@ export default function SettingsScreen() {
               <SettingRow
                 icon="card-outline"
                 title="Manage Subscription"
-                subtitle="Update payment, change plan, or cancel"
+                subtitle={Platform.OS === 'ios' ? 'Manage in Apple ID settings' : 'Manage in Google Play'}
                 color="#7C3AED"
-                onPress={async () => {
-                  try {
-                    await manageSubscription();
-                  } catch {
-                    Alert.alert('Error', 'Could not open billing portal');
+                onPress={() => {
+                  if (Platform.OS === 'ios') {
+                    Linking.openURL('https://apps.apple.com/account/subscriptions');
+                  } else {
+                    Linking.openURL('https://play.google.com/store/account/subscriptions');
                   }
                 }}
               />
@@ -164,7 +163,7 @@ export default function SettingsScreen() {
                   <Ionicons name="diamond" size={24} color="#FFF" />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text variant="titleSmall" style={{ color: '#FFF', fontWeight: '700' }}>
-                      Upgrade to Premium
+                      Start 3-Day Free Trial
                     </Text>
                     <Text variant="bodySmall" style={{ color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
                       Unlock unlimited scans, OCR & AI features
@@ -175,7 +174,7 @@ export default function SettingsScreen() {
               </Pressable>
               <View style={styles.creditsOverview}>
                 <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 10 }}>
-                  Monthly Credits Remaining
+                  Free Tier — 1 scan, AI features locked
                 </Text>
                 <View style={styles.creditsRow}>
                   <CreditChip label="Scans" remaining={getRemainingCredits('scans')} total={usage.scans_limit} theme={theme} />
@@ -280,21 +279,39 @@ export default function SettingsScreen() {
           <View style={[styles.settingGroup, { backgroundColor: theme.colors.surface }]}>
             <SettingRow icon="information-circle-outline" title="About" subtitle="Version 1.0.0" />
             <Divider style={{ marginLeft: 60 }} />
-            <SettingRow icon="shield-checkmark-outline" title="Privacy Policy" />
+            <SettingRow
+              icon="shield-checkmark-outline"
+              title="Privacy Policy"
+              onPress={() => router.push('/privacy-policy' as any)}
+            />
             <Divider style={{ marginLeft: 60 }} />
-            <SettingRow icon="document-text-outline" title="Terms of Service" />
+            <SettingRow
+              icon="document-text-outline"
+              title="Terms of Service"
+              onPress={() => router.push('/terms-of-service' as any)}
+            />
           </View>
         </View>
 
         <View style={styles.section}>
           <View style={[styles.settingGroup, { backgroundColor: theme.colors.surface }]}>
-            <SettingRow
-              icon="log-out-outline"
-              title="Sign Out"
-              color="#EF4444"
-              onPress={handleSignOut}
-              right={null}
-            />
+            {user ? (
+              <SettingRow
+                icon="log-out-outline"
+                title="Sign Out"
+                color="#EF4444"
+                onPress={handleSignOut}
+                right={null}
+              />
+            ) : (
+              <SettingRow
+                icon="log-in-outline"
+                title="Sign In"
+                color="#2563EB"
+                onPress={() => router.push('/login')}
+                right={null}
+              />
+            )}
           </View>
         </View>
       </ScrollView>

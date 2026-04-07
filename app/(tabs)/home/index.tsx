@@ -177,10 +177,10 @@ export default function HomeScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text variant="titleSmall" style={{ color: '#FFF', fontWeight: '700' }}>
-                      Upgrade to Premium
+                      Start 3-Day Free Trial
                     </Text>
                     <Text variant="bodySmall" style={{ color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>
-                      {getRemainingCredits('scans')} scans · {getRemainingCredits('ocr')} OCR · {getRemainingCredits('summaries')} summaries left
+                      Unlock OCR, summaries, TTS & unlimited scans
                     </Text>
                   </View>
                   <Ionicons name="arrow-forward-circle" size={28} color="rgba(255,255,255,0.9)" />

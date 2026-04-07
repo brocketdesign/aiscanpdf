@@ -92,8 +92,7 @@ export type BillingPeriod = 'monthly' | 'yearly';
 export interface Subscription {
   plan: SubscriptionPlan;
   status: SubscriptionStatus;
-  stripe_customer_id?: string;
-  stripe_subscription_id?: string;
+  revenueCatUserId?: string;
   billing_period?: BillingPeriod;
   current_period_end?: string;
   cancel_at_period_end?: boolean;
@@ -114,11 +113,11 @@ export interface UsageCredits {
 }
 
 export const FREE_LIMITS: Omit<UsageCredits, 'scans_used' | 'ocr_used' | 'summaries_used' | 'tts_used' | 'qa_used' | 'reset_date'> = {
-  scans_limit: 5,
-  ocr_limit: 3,
-  summaries_limit: 2,
-  tts_limit: 1,
-  qa_limit: 2,
+  scans_limit: 1,
+  ocr_limit: 0,
+  summaries_limit: 0,
+  tts_limit: 0,
+  qa_limit: 0,
 };
 
 export const PREMIUM_LIMITS: Omit<UsageCredits, 'scans_used' | 'ocr_used' | 'summaries_used' | 'tts_used' | 'qa_used' | 'reset_date'> = {

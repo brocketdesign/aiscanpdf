@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, KeyboardAvoidingView, Platform, ScrollView, Pressable } from 'react-native';
 import { Text, TextInput, useTheme, Snackbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,11 +9,17 @@ import { useAuthStore } from '../src/stores/authStore';
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { signIn, isLoading } = useAuthStore();
+  const { signIn, isLoading, isAuthenticated } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)/home');
+    }
+  }, [isAuthenticated]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -103,6 +109,12 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
           </View>
+
+          <Pressable onPress={() => router.replace('/(tabs)/home')} style={styles.guestButton}>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, fontWeight: '500' }}>
+              Continue as Guest
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -145,5 +157,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 8,
+  },
+  guestButton: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingVertical: 12,
   },
 });

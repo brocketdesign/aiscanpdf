@@ -18,7 +18,7 @@ export default function DocumentDetailScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { documents, updateDocument, deleteDocument, toggleFavorite } = useDocumentStore();
-  const { useCredit, canUseFeature, showPremiumScreen } = useSubscriptionStore();
+  const { useCredit, canUseFeature, showPremiumScreen, isPremium } = useSubscriptionStore();
 
   // Auto-navigate to premium screen when credit is exhausted
   useEffect(() => {
@@ -42,6 +42,10 @@ export default function DocumentDetailScreen() {
 
   const handleOCR = useCallback(async () => {
     if (!doc || doc.pages.length === 0) return;
+    if (!isPremium()) {
+      router.push('/premium' as any);
+      return;
+    }
     const allowed = await useCredit('ocr');
     if (!allowed) return;
     setLoadingOCR(true);
@@ -61,6 +65,10 @@ export default function DocumentDetailScreen() {
   const handleSummary = useCallback(async () => {
     if (!ocrText) {
       setSnackbar('Extract text first (OCR)');
+      return;
+    }
+    if (!isPremium()) {
+      router.push('/premium' as any);
       return;
     }
     const allowed = await useCredit('summaries');
@@ -83,6 +91,10 @@ export default function DocumentDetailScreen() {
       setSnackbar('Extract text first and enter a question');
       return;
     }
+    if (!isPremium()) {
+      router.push('/premium' as any);
+      return;
+    }
     const allowed = await useCredit('qa');
     if (!allowed) return;
     setLoadingQA(true);
@@ -100,6 +112,10 @@ export default function DocumentDetailScreen() {
     const textToRead = summary || ocrText;
     if (!textToRead) {
       setSnackbar('Extract text or generate summary first');
+      return;
+    }
+    if (!isPremium()) {
+      router.push('/premium' as any);
       return;
     }
     const allowed = await useCredit('tts');
@@ -242,8 +258,8 @@ export default function DocumentDetailScreen() {
               <View style={{ flex: 1 }}>
                 <AIActionCard
                   icon="text-outline"
-                  title="Extract Text (OCR)"
-                  subtitle={ocrText ? `${ocrText.length} characters extracted` : 'Use AI vision to read text'}
+                  title={isPremium() ? 'Extract Text (OCR)' : '🔒 Extract Text (OCR)'}
+                  subtitle={ocrText ? `${ocrText.length} characters extracted` : isPremium() ? 'Use AI vision to read text' : 'Premium — Start free trial'}
                   onPress={handleOCR}
                   loading={loadingOCR}
                   color="#2563EB"
@@ -254,8 +270,8 @@ export default function DocumentDetailScreen() {
               <View style={{ flex: 1 }}>
                 <AIActionCard
                   icon="flash-outline"
-                  title="AI Summary"
-                  subtitle={summary ? 'Summary generated' : 'Get a smart overview'}
+                  title={isPremium() ? 'AI Summary' : '🔒 AI Summary'}
+                  subtitle={summary ? 'Summary generated' : isPremium() ? 'Get a smart overview' : 'Premium — Start free trial'}
                   onPress={handleSummary}
                   loading={loadingSummary}
                   color="#7C3AED"
@@ -266,8 +282,8 @@ export default function DocumentDetailScreen() {
               <View style={{ flex: 1 }}>
                 <AIActionCard
                   icon="volume-high-outline"
-                  title="Read Aloud (TTS)"
-                  subtitle="Listen to your document"
+                  title={isPremium() ? 'Read Aloud (TTS)' : '🔒 Read Aloud (TTS)'}
+                  subtitle={isPremium() ? 'Listen to your document' : 'Premium — Start free trial'}
                   onPress={handleTTS}
                   loading={loadingTTS}
                   color="#0891B2"

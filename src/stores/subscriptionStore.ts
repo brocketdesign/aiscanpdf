@@ -3,11 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   Subscription,
   UsageCredits,
-  SubscriptionPlan,
   BillingPeriod,
 } from '../types';
 import { FREE_LIMITS, PREMIUM_LIMITS } from '../types';
-import * as stripeService from '../services/stripeService';
+import * as iapService from '../services/iapService';
+import { PurchasesPackage } from 'react-native-purchases';
 
 const SUBSCRIPTION_KEY = 'user_subscription';
 const USAGE_KEY = 'user_usage';
@@ -40,16 +40,15 @@ interface SubscriptionState {
   isLoading: boolean;
   showPremiumScreen: boolean;
   premiumTrigger: string;
+  packages: PurchasesPackage[];
 
   // Init
   loadSubscription: () => Promise<void>;
 
   // Subscription management
   isPremium: () => boolean;
-  subscribe: (email: string, name: string | undefined, period: BillingPeriod) => Promise<boolean>;
-  restoreSubscription: (email: string, name: string | undefined) => Promise<boolean>;
-  manageSubscription: () => Promise<void>;
-  cancelSubscription: () => Promise<void>;
+  subscribe: (pkg: PurchasesPackage) => Promise<boolean>;
+  restoreSubscription: () => Promise<boolean>;
 
   // Usage tracking
   canUseFeature: (feature: 'scans' | 'ocr' | 'summaries' | 'tts' | 'qa') => boolean;
@@ -59,6 +58,9 @@ interface SubscriptionState {
   // Premium screen
   setShowPremiumScreen: (show: boolean, trigger?: string) => void;
   dismissPremium: () => void;
+
+  // Packages
+  loadPackages: () => Promise<void>;
 }
 
 export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
@@ -70,6 +72,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   isLoading: false,
   showPremiumScreen: false,
   premiumTrigger: '',
+  packages: [],
 
   loadSubscription: async () => {
     try {
@@ -97,13 +100,11 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       const limits = subscription.plan === 'premium' ? PREMIUM_LIMITS : FREE_LIMITS;
       usage = { ...usage, ...limits };
 
-      // Check if premium subscription is still active
-      if (subscription.plan === 'premium' && subscription.stripe_customer_id) {
+      // Check if premium subscription is still active via RevenueCat
+      if (subscription.plan === 'premium') {
         try {
-          const status = await stripeService.getSubscriptionStatus(
-            subscription.stripe_customer_id
-          );
-          if (!status.active) {
+          const customerInfo = await iapService.getCustomerInfo();
+          if (!iapService.isPremiumActive(customerInfo)) {
             subscription = { ...subscription, plan: 'free', status: 'expired' };
             usage = { ...usage, ...FREE_LIMITS };
             await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(subscription));
@@ -111,9 +112,8 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
             subscription = {
               ...subscription,
               status: 'active',
-              stripe_subscription_id: status.subscriptionId,
-              current_period_end: status.currentPeriodEnd,
-              cancel_at_period_end: status.cancelAtPeriodEnd,
+              current_period_end: iapService.getPremiumExpiration(customerInfo),
+              cancel_at_period_end: !iapService.willRenew(customerInfo),
             };
             await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(subscription));
           }
@@ -133,21 +133,30 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     return subscription.plan === 'premium' && subscription.status === 'active';
   },
 
-  subscribe: async (email, name, period) => {
+  loadPackages: async () => {
+    try {
+      const packages = await iapService.getOfferings();
+      set({ packages });
+    } catch (error) {
+      console.error('Failed to load packages:', error);
+    }
+  },
+
+  subscribe: async (pkg: PurchasesPackage) => {
     set({ isLoading: true });
     try {
-      const result = await stripeService.openCheckout(email, name, period);
-      if (result.success) {
-        const customerId = await stripeService.createOrGetCustomer(email, name);
-        const status = await stripeService.getSubscriptionStatus(customerId);
+      const customerInfo = await iapService.purchasePackage(pkg);
+
+      if (iapService.isPremiumActive(customerInfo)) {
+        const period: BillingPeriod =
+          pkg.packageType === 'ANNUAL' ? 'yearly' : 'monthly';
 
         const subscription: Subscription = {
           plan: 'premium',
           status: 'active',
-          stripe_customer_id: customerId,
-          stripe_subscription_id: status.subscriptionId,
+          revenueCatUserId: customerInfo.originalAppUserId,
           billing_period: period,
-          current_period_end: status.currentPeriodEnd,
+          current_period_end: iapService.getPremiumExpiration(customerInfo),
           cancel_at_period_end: false,
         };
 
@@ -165,28 +174,27 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
         return true;
       }
       return false;
-    } catch (error) {
+    } catch (error: any) {
+      if (error.userCancelled) return false;
       console.error('Subscribe error:', error);
-      return false;
+      throw error;
     } finally {
       set({ isLoading: false });
     }
   },
 
-  restoreSubscription: async (email, name) => {
+  restoreSubscription: async () => {
     set({ isLoading: true });
     try {
-      const customerId = await stripeService.createOrGetCustomer(email, name);
-      const status = await stripeService.getSubscriptionStatus(customerId);
+      const customerInfo = await iapService.restorePurchases();
 
-      if (status.active) {
+      if (iapService.isPremiumActive(customerInfo)) {
         const subscription: Subscription = {
           plan: 'premium',
           status: 'active',
-          stripe_customer_id: customerId,
-          stripe_subscription_id: status.subscriptionId,
-          current_period_end: status.currentPeriodEnd,
-          cancel_at_period_end: status.cancelAtPeriodEnd,
+          revenueCatUserId: customerInfo.originalAppUserId,
+          current_period_end: iapService.getPremiumExpiration(customerInfo),
+          cancel_at_period_end: !iapService.willRenew(customerInfo),
         };
 
         const usage = { ...get().usage, ...PREMIUM_LIMITS };
@@ -204,26 +212,6 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       return false;
     } finally {
       set({ isLoading: false });
-    }
-  },
-
-  manageSubscription: async () => {
-    const { subscription } = get();
-    if (subscription.stripe_customer_id) {
-      await stripeService.openBillingPortal(subscription.stripe_customer_id);
-    }
-  },
-
-  cancelSubscription: async () => {
-    const { subscription } = get();
-    if (subscription.stripe_subscription_id) {
-      await stripeService.cancelSubscription(subscription.stripe_subscription_id);
-      const updated = {
-        ...subscription,
-        cancel_at_period_end: true,
-      };
-      await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(updated));
-      set({ subscription: updated });
     }
   },
 

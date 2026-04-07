@@ -2,31 +2,12 @@ import { Redirect } from 'expo-router';
 import { useAuthStore } from '../src/stores/authStore';
 import { useSubscriptionStore } from '../src/stores/subscriptionStore';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const PREMIUM_SHOWN_KEY = 'premium_shown_session';
 
 export default function Index() {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isLoading, isAuthenticated } = useAuthStore();
   const { isPremium } = useSubscriptionStore();
-  const [checkedPremium, setCheckedPremium] = useState(false);
-  const [shouldShowPremium, setShouldShowPremium] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      if (!isLoading && isAuthenticated && !isPremium()) {
-        const shown = await AsyncStorage.getItem(PREMIUM_SHOWN_KEY);
-        if (!shown) {
-          await AsyncStorage.setItem(PREMIUM_SHOWN_KEY, 'true');
-          setShouldShowPremium(true);
-        }
-      }
-      setCheckedPremium(true);
-    })();
-  }, [isLoading, isAuthenticated]);
-
-  if (isLoading || !checkedPremium) {
+  if (isLoading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#2563EB" />
@@ -34,14 +15,11 @@ export default function Index() {
     );
   }
 
-  if (isAuthenticated) {
-    if (shouldShowPremium) {
-      return <Redirect href={"/premium" as any} />;
-    }
-    return <Redirect href="/(tabs)/home" />;
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
   }
 
-  return <Redirect href="/login" />;
+  return <Redirect href="/(tabs)/home" />;
 }
 
 const styles = StyleSheet.create({

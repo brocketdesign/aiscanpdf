@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '../src/stores/authStore';
 import { useSettingsStore } from '../src/stores/settingsStore';
 import { useSubscriptionStore } from '../src/stores/subscriptionStore';
+import { configureRevenueCat } from '../src/services/iapService';
 import { lightTheme, darkTheme } from '../src/theme';
 
 export default function RootLayout() {
@@ -17,9 +18,11 @@ export default function RootLayout() {
   const { loadSubscription } = useSubscriptionStore();
 
   useEffect(() => {
+    configureRevenueCat().then(() => {
+      loadSubscription();
+    });
     initialize();
     loadSettings();
-    loadSubscription();
   }, []);
 
   const isDark =
@@ -51,6 +54,8 @@ export default function RootLayout() {
               name="premium"
               options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
             />
+            <Stack.Screen name="privacy-policy" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="terms-of-service" options={{ animation: 'slide_from_right' }} />
           </Stack>
         </PaperProvider>
       </SafeAreaProvider>
